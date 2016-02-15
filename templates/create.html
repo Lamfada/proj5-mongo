@@ -39,16 +39,33 @@
 
 <form method="PUT" action="_create">
 <div class="row">
-    <div class="col-md-2">
+    <div class="col-md-3">
     <input type="text" class="form-control"
-     name="Date" value=""/>
+     name="Date" id="Date" value="YYYY-MM-DD HH:mm"/>
   </div>
-  <div class="col-md-10">
+  <div class="col-md-7">
     <input type="text" class="form-control"
-      name="Memo" value="Memo" />
+      name="Memo" id="Memo" value="Memo" />
   </div>
+  <button type="button" id="add" name="add">Add Memo</button>
  </div>
 </form>
 </div> 
+
+<script>
+$("#add").click(function(){
+   var x = document.getElementById('Date').value;
+   var y = document.getElementById('Memo').value;
+   document.getElementById('Date').value ='YYYY-MM-DD HH:mm';
+   document.getElementById('Memo').value ='Memo';
+   $.getJSON( "/_enter", { date: x, memo: y}, 
+              function(data) {
+                var res = data.result;
+                alert(res.message);
+              }
+          );
+});
+</script>
+
 </body>
 </html>

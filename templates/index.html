@@ -45,9 +45,10 @@
   <div class="col-md-2">
     {{ memo.date | humanize }}
   </div>
-  <div class="col-md-10">
+  <div class="col-md-8">
     {{ memo.text }}
   </div>
+  <button type="button" onclick='removal("{{memo._id}}")' >Delete</button>
   </div> <!-- row -->
   </div> <!-- memo -->
   {% endfor %}
@@ -58,5 +59,15 @@
  
 
 </div> <!-- container -->
+<script>
+function removal(i){
+   $.getJSON( "/_rem",{id:i},
+              function(data) {
+                var res = data.result;
+                location.reload();
+              }
+          );
+}
+</script>
 </body>
 </html>

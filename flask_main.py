@@ -16,8 +16,11 @@ import flask
 from flask import render_template
 from flask import request
 from flask import url_for
+from flask import url_for
+from flask import jsonify # For AJAX transactions
 
 import json
+from bson import ObjectId
 import logging
 
 # Date handling 
@@ -27,7 +30,7 @@ from dateutil import tz  # For interpreting local times
 
 # Mongo database
 from pymongo import MongoClient
-
+import pymongo
 
 ###
 # Globals
@@ -37,9 +40,9 @@ import CONFIG
 app = flask.Flask(__name__)
 
 try: 
-    dbclient = MongoClient(CONFIG.MONGO_URL)
-    db = dbclient.memos
-    collection = db.dated
+    dbclient = MongoClient(CONFIG.MONGO_URI)
+    db = dbclient.get_default_database( )
+    collection = db['dated']
 
 except:
     print("Failure opening database.  Is Mongo running? Correct password?")
@@ -62,12 +65,42 @@ def index():
   return flask.render_template('index.html')
 
 
-# We don't have an interface for creating memos yet
-# @app.route("/create")
-# def create():
-#     app.logger.debug("Create")
-#     return flask.render_template('create.html')
 
+@app.route("/create")
+def create():
+    app.logger.debug("Create")
+    return flask.render_template('create.html')
+
+#enter memo into database
+@app.route("/_enter")
+def enter():
+    """
+    Function to enter a user's dated memo into the database, or at least tell them
+    that we tried and failed.
+    """
+    date = request.args.get("date",type = str)
+    memo = request.args.get("memo",type = str)
+    mess = "Success"
+    try:
+         time = arrow.get(date, 'YYYY-MM-DD HH:mm').to('local').isoformat()
+         record = {"type":"dated_memo","date":time,"text":memo}
+         collection.insert(record)
+    except:
+        #Tell User that for some reason the server failed to store their memo.
+        mess = "Failure"
+        rsult = {"message":mess}
+    return jsonify(result=rsult)
+
+@app.route("/_rem")
+def remove():
+    """
+    Remove an entry from the database.
+    """
+    print("Begin")
+    id = request.args.get("id",type=str)
+    id = ObjectId(id)
+    collection.delete_one({'_id':id})
+    return jsonify(result={"why":"not"})
 
 @app.errorhandler(404)
 def page_not_found(error):
@@ -91,6 +124,7 @@ def page_not_found(error):
 #     except:
 #         return "(bad date)"
 
+
 @app.template_filter( 'humanize' )
 def humanize_arrow_date( date ):
     """
@@ -101,17 +135,26 @@ def humanize_arrow_date( date ):
     """
     try:
         then = arrow.get(date).to('local')
+        then_past = then.replace(days=-1)
+        then_future = then.replace(days=1)
         now = arrow.utcnow().to('local')
+        now = now.replace(days=-1)
+        #I know it looks weird to take a day off of now, but for some reason it seems
+        # to be generating tomorrow when asked for now. The replacement is
+        # correcting for that strange behavior.
         if then.date() == now.date():
             human = "Today"
         else: 
             human = then.humanize(now)
+            if then_past.date() == now.date():
+                human = "Tomorrow"
+            if then_future.date() == now.date():
+                human = "Yesterday"
             if human == "in a day":
                 human = "Tomorrow"
     except: 
         human = date
     return human
-
 
 #############
 #
@@ -124,9 +167,10 @@ def get_memos():
     can be inserted directly in the 'session' object.
     """
     records = [ ]
-    for record in collection.find( { "type": "dated_memo" } ):
+    for record in collection.find( { "type": "dated_memo" } ).sort('date',pymongo.ASCENDING):
         record['date'] = arrow.get(record['date']).isoformat()
-        del record['_id']
+        print (type(record['_id']))
+        record['_id'] = str(record['_id'])
         records.append(record)
     return records 
 
